@@ -16,6 +16,7 @@ namespace ArkDinoAnnouncer
         private string SaveFilePath = "";
 
         private bool MessageTooLong = false;
+        private bool MessageFragsSent = false;
 
         public frmMain()
         {
@@ -107,6 +108,7 @@ namespace ArkDinoAnnouncer
                     {
                         message += Environment.NewLine + "```";
                         client.SendMessageAsync(message).Wait();
+                        MessageFragsSent = true;
                         message = @"```autohotkey" + Environment.NewLine;
                     }
 
@@ -116,18 +118,21 @@ namespace ArkDinoAnnouncer
                     }
                 }
 
-                if (message.Length >= 2000) MessageTooLong = true;
+                MessageTooLong = message.Length >= 2000 && !MessageFragsSent;
 
                 if (MessageTooLong)
                 {
                     SendAnnouncement();
                     MessageTooLong = false;
                 }
-                else
+                else if (!MessageTooLong && !MessageFragsSent)
                 {
                     message += Environment.NewLine + "```";
                     client.SendMessageAsync(message).Wait();
                 }
+
+                MessageTooLong = false;
+                MessageFragsSent = false;
             }
         }
 
