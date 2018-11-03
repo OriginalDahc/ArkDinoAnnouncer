@@ -110,7 +110,7 @@ namespace ArkDinoAnnouncer
                         message = @"```autohotkey" + Environment.NewLine;
                     }
 
-                    if (foundDinos && row.Index < dgvTrackList.RowCount)
+                    if (!MessageTooLong && foundDinos && row.Index < dgvTrackList.RowCount)
                     {
                         message += Environment.NewLine + Environment.NewLine + Environment.NewLine;
                     }
