@@ -43,93 +43,134 @@ namespace ArkDinoAnnouncer
                 return;
             }
 
-            client = new Discord.Webhook.DiscordWebhookClient(Convert.ToUInt64(txtWebhookID.Text), txtWebhookToken.Text);
+            var currentEntry = "";
 
-            var cd = new ArkClusterData(ClusterFolder, loadOnlyPropertiesInDomain: true);
-            var gd = new ArkGameData(SaveFilePath, cd, loadOnlyPropertiesInDomain: true);
-
-            //extract savegame
-            var upd = gd.Update(CancellationToken.None, deferApplyNewData: true);
-            if (upd == null) return;
-            if (upd.Success == true)
+            try
             {
-                //extract cluster data
-                var cr = cd.Update(CancellationToken.None);
+                client = new Discord.Webhook.DiscordWebhookClient(Convert.ToUInt64(txtWebhookID.Text), txtWebhookToken.Text);
 
-                //assign the new data to the domain model
-                gd.ApplyPreviousUpdate();
+                var cd = new ArkClusterData(ClusterFolder, loadOnlyPropertiesInDomain: true);
+                var gd = new ArkGameData(SaveFilePath, cd, loadOnlyPropertiesInDomain: true);
 
-                // Populate Wild dinos
-                var wildDinos = gd.WildCreatures;
-
-                // init message
-                var message = @"```autohotkey" + Environment.NewLine;
-
-                // Go through entries
-                foreach (DataGridViewRow row in dgvTrackList.Rows)
+                //extract savegame
+                var upd = gd.Update(CancellationToken.None, deferApplyNewData: true);
+                if (upd == null) return;
+                if (upd.Success == true)
                 {
-                    if (string.IsNullOrWhiteSpace(row.Cells[0].Value.ToString()) || string.IsNullOrWhiteSpace(row.Cells[1].Value.ToString()))
+                    //extract cluster data
+                    var cr = cd.Update(CancellationToken.None);
+
+                    //assign the new data to the domain model
+                    gd.ApplyPreviousUpdate();
+
+                    // Populate Wild dinos
+                    var wildDinos = gd.WildCreatures;
+
+                    // Disable for publish
+                    //var wildNames = new List<string>();
+
+                    //foreach (var dino in wildDinos)
+                    //{
+                    //    wildNames.Add(dino.ClassName.Split('_').First());
+                    //}
+
+                    //var maxLength = wildNames.Max(q => q.Length);
+                    ///////////////////////////////
+
+                    // init message
+                    var message = @"```autohotkey" + Environment.NewLine;
+
+                    // Go through entries
+                    foreach (DataGridViewRow row in dgvTrackList.Rows)
                     {
-                        MessageBox.Show("Incomplete Data", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
-                        return;
-                    }
-
-                    var dType = row.Cells[0].Value.ToString();
-                    var searchString = row.Cells[1].Value.ToString();
-
-                    //init controllers
-                    var foundDinos = false;
-
-                    // Get desired Dinos
-                    var queriedDinos = new List<ArkWildCreature>();
-                    queriedDinos = wildDinos.Where(q => q.ClassName.Contains(searchString)).ToList();
-
-                    // Discord
-                    if (queriedDinos.Count > 0)
-                    {
-                        foundDinos = true;
-                        message += $"{dType} sightings on " + queriedDinos.First().Location.MapName + ":" + Environment.NewLine;
-
-                        message += $"_{"_______",-7}_{"________________",-16}_{"_______",-7}_{"_________",-9}_" + Environment.NewLine;
-                        message += $"|{"Gender",-7}|{"Type",-16}|{"Level",-7}|{"Location",-9}|" + Environment.NewLine;
-                        message += $"|{"_______",-7}|{"________________",-16}|{"_______",-7}|{"_________",-9}|" + Environment.NewLine;
-                        foreach (var dino in queriedDinos)
+                        if (string.IsNullOrWhiteSpace(row.Cells[0].Value.ToString()) || string.IsNullOrWhiteSpace(row.Cells[1].Value.ToString()))
                         {
-                            var gender = $" {dino.Gender.ToString()}";
-                            var name = $" {dino.ClassName.Split('_').First()}";
-                            var level = $" {dino.BaseLevel.ToString()}";
-                            var loc = $" {dino.Location.Latitude.Value.ToString("N0", CultureInfo.InvariantCulture)}, { dino.Location.Latitude.Value.ToString("N0", CultureInfo.InvariantCulture)}";
-                            message += $"|{gender,-7}|{name,-16}|{level,-7}|{loc,-9}|" + Environment.NewLine;
+                            MessageBox.Show("Incomplete Data", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                            return;
                         }
-                        message += $"|{"_______",-7}|{"________________",-16}|{"_______",-7}|{"_________",-9}|" + Environment.NewLine;
+
+                        var dType = row.Cells[0].Value.ToString();
+                        var searchString = row.Cells[1].Value.ToString().ToLower();
+
+                        currentEntry = dType + " | " + searchString;
+
+                        //init controllers
+                        var foundDinos = false;
+
+                        // Get desired Dinos
+                        var queriedDinos = new List<ArkWildCreature>();
+                        queriedDinos = wildDinos.Where(q => q.ClassName.ToLower().Contains(searchString)).ToList();
+
+                        // testing message length
+                        //queriedDinos = wildDinos.ToList();
+                        
+                        // Discord
+                        if (queriedDinos.Count > 0)
+                        {
+                            foundDinos = true;
+                            message += $"Recent {dType} sightings on " + queriedDinos.First().Location.MapName + ":" + Environment.NewLine;
+
+                            //message += $"_{"_______",-7}_{"________________",-16}_{"_______",-7}_{"_________",-9}_" + Environment.NewLine; // With level
+                            message += $"_{"_______",-7}_{"________________",-16}_{"_________",-9}_" + Environment.NewLine;
+                            //message += $"|{"Gender",-7}|{"Type",-16}|{"Level",-7}|{"Location",-9}|" + Environment.NewLine; // With level
+                            message += $"|{"Gender",-7}|{"Type",-16}|{"Location",-9}|" + Environment.NewLine;
+                            //message += $"|{"_______",-7}|{"________________",-16}|{"_______",-7}|{"_________",-9}|" + Environment.NewLine; // With level
+                            message += $"|{"_______",-7}|{"________________",-16}|{"_________",-9}|" + Environment.NewLine;
+                            foreach (var dino in queriedDinos)
+                            {
+                                var gender = $" {dino.Gender.ToString()}";
+                                var name = $" {dino.ClassName.Split('_').First()}";
+                                var level = $" {dino.BaseLevel.ToString()}";
+                                var loc = $" {(Math.Round(dino.Location.Latitude.Value / 5) * 5).ToString("N0", CultureInfo.InvariantCulture)}, {(Math.Round(dino.Location.Longitude.Value / 5) * 5).ToString("N0", CultureInfo.InvariantCulture)}";
+                                //message += $"|{gender,-7}|{name,-16}|{level,-7}|{loc,-9}|" + Environment.NewLine; // With level
+                                message += $"|{gender,-7}|{name,-16}|{loc,-9}|" + Environment.NewLine;
+                            }
+                            //message += $"|{"_______",-7}|{"________________",-16}|{"_______",-7}|{"_________",-9}|" + Environment.NewLine; // With level
+                            message += $"|{"_______",-7}|{"________________",-16}|{"_________",-9}|" + Environment.NewLine;
+                        }
+
+                        if (MessageTooLong)
+                        {
+                            message += Environment.NewLine + "```";
+                            if (!string.IsNullOrWhiteSpace(message) && message != @"```autohotkey" + Environment.NewLine + Environment.NewLine + "```") client.SendMessageAsync(message).Wait();
+                            MessageFragsSent = true;
+                            message = @"```autohotkey" + Environment.NewLine;
+                        }
+
+                        if (!MessageTooLong && foundDinos && row.Index < dgvTrackList.RowCount)
+                        {
+                            message += Environment.NewLine + Environment.NewLine + Environment.NewLine;
+                        }
                     }
+
+                    MessageTooLong = message.Length >= 2000 && !MessageFragsSent;
 
                     if (MessageTooLong)
                     {
-                        message += Environment.NewLine + "```";
-                        client.SendMessageAsync(message).Wait();
-                        MessageFragsSent = true;
-                        message = @"```autohotkey" + Environment.NewLine;
+                        SendAnnouncement();
+                        MessageTooLong = false;
                     }
-
-                    if (!MessageTooLong && foundDinos && row.Index < dgvTrackList.RowCount)
+                    else if (!MessageTooLong && !MessageFragsSent)
                     {
-                        message += Environment.NewLine + Environment.NewLine + Environment.NewLine;
+                        message += Environment.NewLine + "```";
+                        if (!string.IsNullOrWhiteSpace(message) && message != @"```autohotkey" + Environment.NewLine + Environment.NewLine + "```") client.SendMessageAsync(message).Wait();
                     }
                 }
-
-                MessageTooLong = message.Length >= 2000 && !MessageFragsSent;
-
-                if (MessageTooLong)
+            }
+            catch (Exception ex)
+            {
+                if (!string.IsNullOrWhiteSpace(currentEntry))
                 {
-                    SendAnnouncement();
-                    MessageTooLong = false;
+                    MessageBox.Show("Too many dinos were returned from enty . Please narrow your search.");
                 }
-                else if (!MessageTooLong && !MessageFragsSent)
+                else
                 {
-                    message += Environment.NewLine + "```";
-                    client.SendMessageAsync(message).Wait();
+                    Clipboard.SetText("Message: " + Environment.NewLine + ex.Message + Environment.NewLine + Environment.NewLine + "Stack Trace: " + Environment.NewLine + ex.StackTrace);
+                    MessageBox.Show("An unhandled exception has occurred. Please report steps to reproduce to Dahc. Details have been copied to your clipboard.");
                 }
+            }
+            finally
+            {
 
                 MessageTooLong = false;
                 MessageFragsSent = false;
